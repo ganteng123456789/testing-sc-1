@@ -1041,45 +1041,59 @@ local function isBallRaritySelected(ballName)
 end
 
 -- =========================================
--- SPECIAL TAB + Scheduler (FIX: tidak recreate dropdown)
+-- SPECIAL TAB + Scheduler (Odd hour: 15 menit collect lalu train)
 -- =========================================
 local SpecialTab = CreateTab("Special")
-local schedulerActive=false
-local lastHour=-1
 
-CreateToggle(SpecialTab,"Enable Scheduler WIB ⏰","EnableScheduler",function(v)
-    schedulerActive=v
+local schedulerActive = false
+local lastMode = nil -- "collect" / "train"
 
-    if schedulerActive then
-        task.spawn(function()
-            while schedulerActive do
-                local currentHour=(tonumber(os.date("!%H")) + 7) % 24
+local function setMode(mode, currentHour, currentMin)
+	if lastMode == mode then return end
+	lastMode = mode
 
-                if currentHour ~= lastHour then
-                    lastHour=currentHour
-                    local isOdd=(currentHour % 2 ~= 0)
+	if mode == "collect" then
+		print(("⚽ WIB %02d:%02d | Collect ON (AutoTrain OFF)"):format(currentHour, currentMin))
+		if UIControllers["AutoTrain"] then UIControllers["AutoTrain"](false) end
+		task.wait(0.5)
+		if UIControllers["AutoCollectVolcanoKamikaze"] then UIControllers["AutoCollectVolcanoKamikaze"](true) end
+	else
+		print(("🏋️ WIB %02d:%02d | AutoTrain ON (Collect OFF)"):format(currentHour, currentMin))
+		if UIControllers["AutoCollectVolcanoKamikaze"] then UIControllers["AutoCollectVolcanoKamikaze"](false) end
+		task.wait(0.5)
+		if UIControllers["AutoTrain"] then UIControllers["AutoTrain"](true) end
+	end
+end
 
-                    if isOdd then
-                        print("⚽ WIB " .. currentHour .. ":00 | Collect BLOCK CUP aktif (AutoTrain OFF)")
-                        if UIControllers["AutoTrain"] then UIControllers["AutoTrain"](false) end
-                        task.wait(0.5)
-                        if UIControllers["AutoCollectVolcanoKamikaze"] then UIControllers["AutoCollectVolcanoKamikaze"](true) end
-                    else
-                        print("🏋️ WIB " .. currentHour .. ":00 | Auto Train aktif (Collect OFF)")
-                        if UIControllers["AutoCollectVolcanoKamikaze"] then UIControllers["AutoCollectVolcanoKamikaze"](false) end
-                        task.wait(0.5)
-                        if UIControllers["AutoTrain"] then UIControllers["AutoTrain"](true) end
-                    end
-                end
+CreateToggle(SpecialTab, "Enable Scheduler WIB ⏰", "EnableScheduler", function(v)
+	schedulerActive = v
 
-                task.wait(10)
-            end
-        end)
-    else
-        if UIControllers["AutoTrain"] then UIControllers["AutoTrain"](false) end
-        if UIControllers["AutoCollectVolcanoKamikaze"] then UIControllers["AutoCollectVolcanoKamikaze"](false) end
-        print("Scheduler OFF")
-    end
+	if schedulerActive then
+		task.spawn(function()
+			while schedulerActive do
+				-- WIB dari UTC
+				local hourWIB = (tonumber(os.date("!%H")) + 7) % 24
+				local minWIB  = tonumber(os.date("!%M"))
+
+				local isOddHour = (hourWIB % 2 ~= 0)
+				local inFirst15 = (minWIB < 16)
+
+				if isOddHour and inFirst15 then
+					setMode("collect", hourWIB, minWIB) -- 01:00-01:14, 03:00-03:14, dst
+				else
+					setMode("train", hourWIB, minWIB) -- sisanya
+				end
+
+				task.wait(5) -- cek tiap 5 detik biar responsif pas menit ganti
+			end
+		end)
+	else
+		-- reset semua saat OFF
+		lastMode = nil
+		if UIControllers["AutoTrain"] then UIControllers["AutoTrain"](false) end
+		if UIControllers["AutoCollectVolcanoKamikaze"] then UIControllers["AutoCollectVolcanoKamikaze"](false) end
+		print("Scheduler OFF")
+	end
 end)
 
 -- =========================================
