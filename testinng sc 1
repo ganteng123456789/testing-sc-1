@@ -1,0 +1,180 @@
+-- =========================================
+-- FIXED: Collect BLOCK CUP (NO Safe Zone)
+-- Replace ALL old AutoCollectVolcanoKamikaze blocks with this one
+-- Requirements: fixedStartCFrame, ForcedTP, Net, isBallRaritySelected, player, PlayerGui
+-- =========================================
+
+local autoCollectVolcanoKamikaze = false
+local volcanoKamikazeTick = 0
+
+CreateToggle(EventTab, "Collect BLOCK CUP ⚽ (NO Safe Zone)", "AutoCollectVolcanoKamikaze", function(v)
+    autoCollectVolcanoKamikaze = v
+    volcanoKamikazeTick += 1
+    local myTick = volcanoKamikazeTick
+
+    if not autoCollectVolcanoKamikaze then
+        return
+    end
+
+    task.spawn(function()
+        while autoCollectVolcanoKamikaze and (myTick == volcanoKamikazeTick) do
+            pcall(function()
+                local char = player.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                local hum = char and char:FindFirstChild("Humanoid")
+                if not (char and hrp and hum and (hum.Health > 0)) then
+                    task.wait(0.5)
+                    return
+                end
+
+                local kickPos = workspace:FindFirstChild("Areas") and workspace.Areas:FindFirstChild("KickReady")
+                if not kickPos then return end
+                local targetCF = (kickPos:IsA("BasePart") and kickPos.CFrame) or kickPos:GetPivot()
+
+                if ((hrp.Position - targetCF.Position).Magnitude > 10) then
+                    ForcedTP(targetCF + Vector3.new(0, 3, 0))
+                end
+
+                task.wait(0.25)
+
+                -- kick sampai ketp / pindah map
+                local startPos = hrp.Position
+                local HUD = PlayerGui:FindFirstChild("HUD")
+                local wasTeleported = false
+
+                for _ = 1, 180 do
+                    task.wait(0.06)
+                    if not autoCollectVolcanoKamikaze then return end
+                    if hum.Health <= 0 then return end
+
+                    local KickButton = HUD and HUD:FindFirstChild("KickButton")
+                    if KickButton and KickButton.Visible then
+                        Net.rev_KickEvent:FireServer(1)
+                    end
+
+                    if ((hrp.Position - startPos).Magnitude > 40) then
+                        wasTeleported = true
+                        break
+                    end
+                end
+                if not wasTeleported then return end
+
+                -- tunggu bola spawn
+                local tSpawn = 0
+                while tSpawn < 5 do
+                    task.wait(0.2)
+                    tSpawn += 0.2
+                    local found = false
+                    for _, obj in ipairs(workspace.Debris:GetChildren()) do
+                        if isBallRaritySelected(obj.Name) then
+                            found = true
+                            break
+                        end
+                    end
+                    if found then break end
+                end
+
+                -- start point
+                hrp.CFrame = fixedStartCFrame + Vector3.new(0, 5, 0)
+                task.wait(0.12)
+
+                -- helper
+                local function getCoinPart(obj)
+                    if not obj or not obj.Parent then return nil end
+                    return obj:FindFirstChild("RootPart", true)
+                        or obj:FindFirstChild("Hitbox", true)
+                        or obj.PrimaryPart
+                        or obj:FindFirstChildWhichIsA("BasePart", true)
+                end
+
+                local function forceCollect(coinObj)
+                    local part = getCoinPart(coinObj)
+                    if not (part and hrp and hrp.Parent) then return end
+
+                    -- micro tp biar pasti sentuh
+                    pcall(function()
+                        hrp.CFrame = part.CFrame * CFrame.new(0, 0, -1.2)
+                    end)
+
+                    for _ = 1, 4 do
+                        if not (coinObj and coinObj.Parent) then break end
+                        pcall(function()
+                            if firetouchinterest then
+                                firetouchinterest(hrp, part, 0)
+                                task.wait(0.01)
+                                firetouchinterest(hrp, part, 1)
+                            end
+                        end)
+                        pcall(function()
+                            Net.rev_CollectShard:FireServer(coinObj.Name)
+                        end)
+                        task.wait(0.02)
+                    end
+                end
+
+                -- COLLECT LOOP
+                local collected = {}
+                local scanRadius = 260
+                local touchRadius = 45
+                local perCoinTimeout = 0.65
+
+                while autoCollectVolcanoKamikaze and (hum.Health > 0) do
+                    local currentSpeed = (enableCustomSpeed and customWalkSpeed) or 95
+                    pcall(function() hum.WalkSpeed = currentSpeed end)
+
+                    local nearestObj = nil
+                    local nearestDist = math.huge
+                    local myPos = hrp.Position
+
+                    for _, obj in ipairs(workspace.Debris:GetChildren()) do
+                        if isBallRaritySelected(obj.Name) and not collected[obj] then
+                            local part = getCoinPart(obj)
+                            if part then
+                                local dist = (Vector3.new(myPos.X,0,myPos.Z) - Vector3.new(part.Position.X,0,part.Position.Z)).Magnitude
+                                if dist <= scanRadius and dist < nearestDist then
+                                    nearestDist = dist
+                                    nearestObj = obj
+                                end
+                            end
+                        end
+                    end
+
+                    if not nearestObj then
+                        task.wait(0.12)
+                        break
+                    end
+
+                    local t = 0
+                    while autoCollectVolcanoKamikaze and nearestObj.Parent and (hum.Health > 0) and not collected[nearestObj] do
+                        local part = getCoinPart(nearestObj)
+                        if not part then
+                            collected[nearestObj] = true
+                            break
+                        end
+
+                        local flatHrp = Vector3.new(hrp.Position.X,0,hrp.Position.Z)
+                        local flatCoin = Vector3.new(part.Position.X,0,part.Position.Z)
+                        local dist = (flatHrp - flatCoin).Magnitude
+
+                        if dist <= touchRadius then
+                            collected[nearestObj] = true
+                            forceCollect(nearestObj)
+                            break
+                        else
+                            pcall(function() hum:MoveTo(part.Position) end)
+                        end
+
+                        task.wait(0.03)
+                        t += 0.03
+                        if t >= perCoinTimeout then
+                            collected[nearestObj] = true
+                            break
+                        end
+                    end
+                end
+            end)
+
+            task.wait(0.35)
+        end
+    end)
+end)
