@@ -1052,16 +1052,26 @@ local function setMode(mode, currentHour, currentMin)
 	if lastMode == mode then return end
 	lastMode = mode
 
+	local autoTrainCtl = UIControllers["AutoTrain"]
+	local collectCtl   = UIControllers["AutoCollectVolcanoKamikaze"]
+
+	if not autoTrainCtl then
+		warn("Scheduler: UIControllers['AutoTrain'] belum ada (toggle AutoTrain belum dibuat / beda key)")
+	end
+	if not collectCtl then
+		warn("Scheduler: UIControllers['AutoCollectVolcanoKamikaze'] belum ada (toggle collect belum dibuat / beda key)")
+	end
+
 	if mode == "collect" then
 		print(("⚽ WIB %02d:%02d | Collect ON (AutoTrain OFF)"):format(currentHour, currentMin))
-		if UIControllers["AutoTrain"] then UIControllers["AutoTrain"](false) end
-		task.wait(0.5)
-		if UIControllers["AutoCollectVolcanoKamikaze"] then UIControllers["AutoCollectVolcanoKamikaze"](true) end
+		if autoTrainCtl then autoTrainCtl(false) end
+		task.wait(0.2)
+		if collectCtl then collectCtl(true) end
 	else
 		print(("🏋️ WIB %02d:%02d | AutoTrain ON (Collect OFF)"):format(currentHour, currentMin))
-		if UIControllers["AutoCollectVolcanoKamikaze"] then UIControllers["AutoCollectVolcanoKamikaze"](false) end
-		task.wait(0.5)
-		if UIControllers["AutoTrain"] then UIControllers["AutoTrain"](true) end
+		if collectCtl then collectCtl(false) end
+		task.wait(0.2)
+		if autoTrainCtl then autoTrainCtl(true) end
 	end
 end
 
