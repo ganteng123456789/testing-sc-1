@@ -1,15 +1,7 @@
 --[[
-    ███████╗██╗     ██╗███╗   ███╗███████╗    ██████╗ ███╗   ██╗ ██████╗ 
-    ██╔════╝██║     ██║████╗ ████║██╔════╝    ██╔══██╗████╗  ██║██╔════╝ 
-    ███████╗██║     ██║██╔████╔██║█████╗      ██████╔╝██╔██╗ ██║██║  ███╗
-    ╚════██║██║     ██║██║╚██╔╝██║██╔══╝      ██╔══██╗██║╚██╗██║██║   ██║
-    ███████║███████╗██║██║ ╚═╝ ██║███████╗    ██║  ██║██║ ╚████║╚██████╔╝
-    ╚══════╝╚══════╝╚═╝╚═╝     ╚═╝╚══════╝    ╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝ 
+    Slime RNG | Free Auto (No Key, No Webhook, No Limits)
+    Fully functional. Fully free.
 --]]
-
--- Script: Slime RNG | Best auto everything by Gluttony Core
--- Version: 3.2.1
--- Protected by Luarmor V4
 
 local config = {
     auto_roll = true,
@@ -20,12 +12,6 @@ local config = {
     auto_collect = true,
     auto_hatch = true,
     auto_quest = true,
-    use_key = true,
-    key = "",
-    webhook = {
-        enabled = true,
-        url = "https://discord.com/api/webhooks/134567890123456789/abcdefghijklmnopqrstuvwxyz1234567890"
-    },
     settings = {
         delay_min = 0.1,
         delay_max = 0.5,
@@ -34,24 +20,9 @@ local config = {
     }
 }
 
-local function sendWebhook(data)
-    if not config.webhook.enabled then return end
-    local http = game:GetService("HttpService")
-    local payload = {
-        ["content"] = data.content or "",
-        ["embeds"] = data.embeds or {}
-    }
-    local success, err = pcall(function()
-        http:PostAsync(config.webhook.url, http:JSONEncode(payload))
-    end)
-    if not success then
-        warn("Webhook failed: " .. tostring(err))
-    end
-end
-
 local function log(msg)
     if config.settings.debug then
-        print("[SlimeRNG] " .. tostring(msg))
+        print("[SlimeRNG-Free] " .. tostring(msg))
     end
 end
 
@@ -87,7 +58,7 @@ end
 
 local function createGUI()
     local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "SlimeRNG_GUI"
+    screenGui.Name = "SlimeRNG_Free"
     screenGui.ResetOnSpawn = false
     screenGui.Parent = game.CoreGui
 
@@ -116,8 +87,8 @@ local function createGUI()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 40)
     title.Position = UDim2.new(0, 0, 0, 0)
-    title.Text = "✦ Slime RNG | Best Auto Everything ✦"
-    title.TextColor3 = Color3.fromRGB(255, 200, 100)
+    title.Text = "✦ Slime RNG | Free Auto ✦"
+    title.TextColor3 = Color3.fromRGB(100, 200, 255)
     title.TextSize = 20
     title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     title.TextStrokeTransparency = 0.5
@@ -128,48 +99,28 @@ local function createGUI()
     local line = Instance.new("Frame")
     line.Size = UDim2.new(0.9, 0, 0, 1)
     line.Position = UDim2.new(0.05, 0, 0, 40)
-    line.BackgroundColor3 = Color3.fromRGB(255, 200, 100)
+    line.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
     line.BackgroundTransparency = 0.3
     line.Parent = frame
 
-    local tabs = {"Auto", "Farm", "Pet", "Quest", "Settings"}
-    local tabButtons = {}
-    local tabY = 50
-
-    for i, tabName in ipairs(tabs) do
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 60, 0, 25)
-        btn.Position = UDim2.new(0.05 + (i-1) * 0.18, 0, 0, tabY)
-        btn.Text = tabName
-        btn.TextColor3 = Color3.fromRGB(200, 200, 220)
-        btn.TextSize = 13
-        btn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-        btn.BackgroundTransparency = 0.3
-        btn.Font = Enum.Font.Gotham
-        btn.BorderSizePixel = 0
-        btn.Parent = frame
-
-        local btnCorner = Instance.new("UICorner")
-        btnCorner.CornerRadius = UDim.new(0, 4)
-        btnCorner.Parent = btn
-
-        tabButtons[i] = btn
-    end
-
-    local contentFrame = Instance.new("Frame")
-    contentFrame.Size = UDim2.new(0.9, 0, 0.7, 0)
-    contentFrame.Position = UDim2.new(0.05, 0, 0.25, 0)
-    contentFrame.BackgroundTransparency = 1
-    contentFrame.Parent = frame
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(0.8, 0, 0, 20)
+    statusLabel.Position = UDim2.new(0.1, 0, 0.15, 0)
+    statusLabel.Text = "Status: Siap"
+    statusLabel.TextColor3 = Color3.fromRGB(150, 150, 180)
+    statusLabel.TextSize = 12
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Font = Enum.Font.Gotham
+    statusLabel.Parent = frame
 
     local startBtn = Instance.new("TextButton")
     startBtn.Size = UDim2.new(0, 120, 0, 35)
-    startBtn.Position = UDim2.new(0.5, -60, 0.85, 0)
+    startBtn.Position = UDim2.new(0.5, -60, 0.8, 0)
     startBtn.Text = "▶ Start"
     startBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     startBtn.TextSize = 16
     startBtn.Font = Enum.Font.GothamBold
-    startBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    startBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
     startBtn.BorderSizePixel = 0
     startBtn.Parent = frame
 
@@ -177,15 +128,15 @@ local function createGUI()
     startCorner.CornerRadius = UDim.new(0, 6)
     startCorner.Parent = startBtn
 
-    local statusLabel = Instance.new("TextLabel")
-    statusLabel.Size = UDim2.new(0.8, 0, 0, 20)
-    statusLabel.Position = UDim2.new(0.1, 0, 0.92, 0)
-    statusLabel.Text = "Status: Idle"
-    statusLabel.TextColor3 = Color3.fromRGB(150, 150, 180)
-    statusLabel.TextSize = 12
-    statusLabel.BackgroundTransparency = 1
-    statusLabel.Font = Enum.Font.Gotham
-    statusLabel.Parent = frame
+    local infoLabel = Instance.new("TextLabel")
+    infoLabel.Size = UDim2.new(0.9, 0, 0, 20)
+    infoLabel.Position = UDim2.new(0.05, 0, 0.92, 0)
+    infoLabel.Text = "✨ Gratis • Tanpa Key • Tanpa Iklan"
+    infoLabel.TextColor3 = Color3.fromRGB(80, 80, 120)
+    infoLabel.TextSize = 11
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.Font = Enum.Font.Gotham
+    infoLabel.Parent = frame
 
     local isRunning = false
     local autoTasks = {}
@@ -202,19 +153,13 @@ local function createGUI()
             end
             autoTasks = {}
             startBtn.Text = "▶ Start"
-            startBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-            updateStatus("Idle")
-            sendWebhook({
-                content = "**Bot Stopped** | User: " .. game.Players.LocalPlayer.Name
-            })
+            startBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+            updateStatus("Berhenti")
         else
             isRunning = true
             startBtn.Text = "■ Stop"
-            startBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
-            updateStatus("Running...")
-            sendWebhook({
-                content = "**Bot Started** | User: " .. game.Players.LocalPlayer.Name
-            })
+            startBtn.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
+            updateStatus("Berjalan...")
             mainLoop()
         end
     end)
@@ -288,57 +233,25 @@ end
 
 local function init()
     if not isGameValid() then
-        log("Not in game!")
+        log("Tidak dalam game!")
         return
     end
 
-    log("Starting Slime RNG Auto Everything...")
-    log("Version 3.2.1")
-
-    if config.use_key then
-        log("Key system enabled. Please enter your key.")
-        local keyInput = game:GetService("GuiService"):CreatePrompt({
-            Title = "Slime RNG Auto",
-            Text = "Enter your key:",
-            Type = "TextInput"
-        })
-        keyInput:Show()
-        keyInput.OnResponse:Connect(function(response)
-            if response ~= "" then
-                config.key = response
-                log("Key accepted.")
-                sendWebhook({
-                    content = "**Key Accepted** | User: " .. game.Players.LocalPlayer.Name
-                })
-                createGUI()
-            else
-                log("Invalid key.")
-            end
-        end)
-    else
-        createGUI()
-    end
+    log("Slime RNG Free Auto dimulai...")
+    createGUI()
 end
 
 local success, err = pcall(init)
 if not success then
-    log("Error: " .. tostring(err))
-    sendWebhook({
-        content = "**Error** | " .. tostring(err)
-    })
-    warn("Script failed to initialize.")
+    warn("Error: " .. tostring(err))
 end
 
 game:GetService("Players").LocalPlayer.OnTeleport:Connect(function()
-    log("Teleport detected. Cleaning up...")
-    local gui = game.CoreGui:FindFirstChild("SlimeRNG_GUI")
+    local gui = game.CoreGui:FindFirstChild("SlimeRNG_Free")
     if gui then gui:Destroy() end
     isRunning = false
     for _, task in ipairs(autoTasks) do
         task:Disconnect()
     end
     autoTasks = {}
-    sendWebhook({
-        content = "**Teleport Detected** | User: " .. game.Players.LocalPlayer.Name
-    })
 end)
