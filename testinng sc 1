@@ -1,269 +1,207 @@
---[[
-    Slime RNG | Free Auto (Universal)
-    Menggunakan spawn() dan wait() untuk kompatibilitas
-]]
+-- Slime RNG | Simple Auto
 
-local config = {
-    auto_roll = true,
-    auto_farm = true,
-    auto_rebirth = true,
-    auto_pet = true,
-    auto_click = true,
-    auto_collect = true,
-    auto_hatch = true,
-    auto_quest = true,
-    settings = {
-        delay_min = 0.1,
-        delay_max = 0.5,
-        debug = true
-    }
-}
+local gui = Instance.new("ScreenGui")
+gui.Name = "SimpleAuto"
+gui.Parent = game.CoreGui
 
-local function log(msg)
-    if config.settings.debug then
-        print("[SlimeRNG] " .. tostring(msg))
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 200, 0, 120)
+frame.Position = UDim2.new(0.5, -100, 0.5, -60)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+frame.BackgroundTransparency = 0.2
+frame.BorderSizePixel = 0
+frame.Parent = gui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.Text = "✦ Auto Slime ✦"
+title.TextColor3 = Color3.fromRGB(100, 200, 255)
+title.TextSize = 16
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.Parent = frame
+
+local btn = Instance.new("TextButton")
+btn.Size = UDim2.new(0, 100, 0, 30)
+btn.Position = UDim2.new(0.5, -50, 0.5, -10)
+btn.Text = "Start"
+btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+btn.TextSize = 14
+btn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+btn.BorderSizePixel = 0
+btn.Font = Enum.Font.GothamBold
+btn.Parent = frame
+
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1, 0, 0, 20)
+status.Position = UDim2.new(0, 0, 1, -20)
+status.Text = "Status: Stop"
+status.TextColor3 = Color3.fromRGB(150, 150, 180)
+status.TextSize = 11
+status.BackgroundTransparency = 1
+status.Font = Enum.Font.Gotham
+status.Parent = frame
+
+local running = false
+
+local function doRoll()
+    local player = game.Players.LocalPlayer
+    if not player then return end
+    
+    local gui = player.PlayerGui
+    if not gui then return end
+    
+    local btn = gui:FindFirstChild("RollButton")
+    if btn then
+        pcall(function()
+            btn:FireServer()
+        end)
     end
 end
 
-local function waitRandom(min, max)
-    local delay = math.random() * (max - min) + min
-    wait(delay)  -- <-- pakai wait() biasa
+local function doFarm()
+    local player = game.Players.LocalPlayer
+    if not player then return end
+    
+    local gui = player.PlayerGui
+    if not gui then return end
+    
+    local btn = gui:FindFirstChild("FarmButton")
+    if btn then
+        pcall(function()
+            btn:FireServer()
+        end)
+    end
 end
 
-local function findObject(path)
-    local parts = {}
-    for part in string.gmatch(path, "[^%.]+") do
-        table.insert(parts, part)
+local function doRebirth()
+    local player = game.Players.LocalPlayer
+    if not player then return end
+    
+    local gui = player.PlayerGui
+    if not gui then return end
+    
+    local btn = gui:FindFirstChild("RebirthButton")
+    if btn then
+        pcall(function()
+            btn:FireServer()
+        end)
     end
-    local current = game
-    for _, part in ipairs(parts) do
-        if current then
-            current = current:FindFirstChild(part)
-            if not current then
-                return nil
-            end
-        else
-            return nil
-        end
-    end
-    return current
 end
 
-local function isGameValid()
-    local players = game:GetService("Players")
-    local localPlayer = players.LocalPlayer
-    if not localPlayer then
-        return false
+local function doPet()
+    local player = game.Players.LocalPlayer
+    if not player then return end
+    
+    local gui = player.PlayerGui
+    if not gui then return end
+    
+    local btn = gui:FindFirstChild("PetButton")
+    if btn then
+        pcall(function()
+            btn:FireServer()
+        end)
     end
-    return true
 end
 
--- Variabel global untuk kontrol
-isRunning = false
-autoTasks = {}
-
-local function createGUI()
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "SlimeRNG_Free"
-    screenGui.ResetOnSpawn = false
-    screenGui.Parent = game.CoreGui
-
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 450, 0, 350)
-    frame.Position = UDim2.new(0.5, -225, 0.5, -175)
-    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
-    frame.BackgroundTransparency = 0.15
-    frame.BorderSizePixel = 0
-    frame.ClipsDescendants = true
-    frame.Parent = screenGui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = frame
-
-    local shadow = Instance.new("ImageLabel")
-    shadow.Size = UDim2.new(1, 20, 1, 20)
-    shadow.Position = UDim2.new(0, -10, 0, -10)
-    shadow.Image = "rbxassetid://1313905858"
-    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-    shadow.ImageTransparency = 0.6
-    shadow.ZIndex = 0
-    shadow.Parent = frame
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.Position = UDim2.new(0, 0, 0, 0)
-    title.Text = "✦ Slime RNG | Free Auto ✦"
-    title.TextColor3 = Color3.fromRGB(100, 200, 255)
-    title.TextSize = 20
-    title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    title.TextStrokeTransparency = 0.5
-    title.BackgroundTransparency = 1
-    title.Font = Enum.Font.GothamBold
-    title.Parent = frame
-
-    local line = Instance.new("Frame")
-    line.Size = UDim2.new(0.9, 0, 0, 1)
-    line.Position = UDim2.new(0.05, 0, 0, 40)
-    line.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
-    line.BackgroundTransparency = 0.3
-    line.Parent = frame
-
-    local statusLabel = Instance.new("TextLabel")
-    statusLabel.Size = UDim2.new(0.8, 0, 0, 20)
-    statusLabel.Position = UDim2.new(0.1, 0, 0.15, 0)
-    statusLabel.Text = "Status: Siap"
-    statusLabel.TextColor3 = Color3.fromRGB(150, 150, 180)
-    statusLabel.TextSize = 12
-    statusLabel.BackgroundTransparency = 1
-    statusLabel.Font = Enum.Font.Gotham
-    statusLabel.Parent = frame
-
-    local startBtn = Instance.new("TextButton")
-    startBtn.Size = UDim2.new(0, 120, 0, 35)
-    startBtn.Position = UDim2.new(0.5, -60, 0.8, 0)
-    startBtn.Text = "▶ Start"
-    startBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    startBtn.TextSize = 16
-    startBtn.Font = Enum.Font.GothamBold
-    startBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
-    startBtn.BorderSizePixel = 0
-    startBtn.Parent = frame
-
-    local startCorner = Instance.new("UICorner")
-    startCorner.CornerRadius = UDim.new(0, 6)
-    startCorner.Parent = startBtn
-
-    local infoLabel = Instance.new("TextLabel")
-    infoLabel.Size = UDim2.new(0.9, 0, 0, 20)
-    infoLabel.Position = UDim2.new(0.05, 0, 0.92, 0)
-    infoLabel.Text = "✨ Gratis • Tanpa Key • Tanpa Iklan"
-    infoLabel.TextColor3 = Color3.fromRGB(80, 80, 120)
-    infoLabel.TextSize = 11
-    infoLabel.BackgroundTransparency = 1
-    infoLabel.Font = Enum.Font.Gotham
-    infoLabel.Parent = frame
-
-    local function updateStatus(text)
-        statusLabel.Text = "Status: " .. text
+local function doClick()
+    local player = game.Players.LocalPlayer
+    if not player then return end
+    
+    local gui = player.PlayerGui
+    if not gui then return end
+    
+    local btn = gui:FindFirstChild("ClickButton")
+    if btn then
+        pcall(function()
+            btn:FireServer()
+        end)
     end
+end
 
-    -- Fungsi utama yang akan dijalankan di dalam spawn
-    local function mainLoop()
-        log("Main loop dimulai!")
+local function doCollect()
+    local player = game.Players.LocalPlayer
+    if not player then return end
+    
+    local gui = player.PlayerGui
+    if not gui then return end
+    
+    local btn = gui:FindFirstChild("CollectButton")
+    if btn then
+        pcall(function()
+            btn:FireServer()
+        end)
+    end
+end
+
+local function doHatch()
+    local player = game.Players.LocalPlayer
+    if not player then return end
+    
+    local gui = player.PlayerGui
+    if not gui then return end
+    
+    local btn = gui:FindFirstChild("HatchButton")
+    if btn then
+        pcall(function()
+            btn:FireServer()
+        end)
+    end
+end
+
+local function doQuest()
+    local player = game.Players.LocalPlayer
+    if not player then return end
+    
+    local gui = player.PlayerGui
+    if not gui then return end
+    
+    local btn = gui:FindFirstChild("QuestButton")
+    if btn then
+        pcall(function()
+            btn:FireServer()
+        end)
+    end
+end
+
+local function autoLoop()
+    while running do
+        doRoll()
+        wait(0.2)
+        doFarm()
+        wait(0.3)
+        doRebirth()
+        wait(0.4)
+        doPet()
+        wait(0.2)
+        doClick()
+        wait(0.1)
+        doCollect()
+        wait(0.2)
+        doHatch()
+        wait(0.3)
+        doQuest()
+        wait(0.4)
+        wait(0.1)
+    end
+end
+
+btn.MouseButton1Click:Connect(function()
+    if running then
+        running = false
+        btn.Text = "Start"
+        btn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+        status.Text = "Status: Stop"
+    else
+        running = true
+        btn.Text = "Stop"
+        btn.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
+        status.Text = "Status: Running"
         
-        while isRunning and isGameValid() do
-            -- Roll
-            if config.auto_roll then
-                local btn = findObject("Players.LocalPlayer.PlayerGui.RollButton")
-                if btn then
-                    pcall(function() btn:FireServer() end)
-                end
-                waitRandom(0.1, 0.3)
-            end
-            
-            -- Farm
-            if config.auto_farm then
-                local btn = findObject("Players.LocalPlayer.PlayerGui.FarmButton")
-                if btn then
-                    pcall(function() btn:FireServer() end)
-                end
-                waitRandom(0.2, 0.5)
-            end
-            
-            -- Rebirth
-            if config.auto_rebirth then
-                local btn = findObject("Players.LocalPlayer.PlayerGui.RebirthButton")
-                if btn then
-                    pcall(function() btn:FireServer() end)
-                end
-                waitRandom(0.3, 0.7)
-            end
-            
-            -- Pet
-            if config.auto_pet then
-                local btn = findObject("Players.LocalPlayer.PlayerGui.PetButton")
-                if btn then
-                    pcall(function() btn:FireServer() end)
-                end
-                waitRandom(0.1, 0.3)
-            end
-            
-            -- Click
-            if config.auto_click then
-                local btn = findObject("Players.LocalPlayer.PlayerGui.ClickButton")
-                if btn then
-                    pcall(function() btn:FireServer() end)
-                end
-                waitRandom(0.05, 0.15)
-            end
-            
-            -- Collect
-            if config.auto_collect then
-                local btn = findObject("Players.LocalPlayer.PlayerGui.CollectButton")
-                if btn then
-                    pcall(function() btn:FireServer() end)
-                end
-                waitRandom(0.1, 0.2)
-            end
-            
-            -- Hatch
-            if config.auto_hatch then
-                local btn = findObject("Players.LocalPlayer.PlayerGui.HatchButton")
-                if btn then
-                    pcall(function() btn:FireServer() end)
-                end
-                waitRandom(0.2, 0.4)
-            end
-            
-            -- Quest
-            if config.auto_quest then
-                local btn = findObject("Players.LocalPlayer.PlayerGui.QuestButton")
-                if btn then
-                    pcall(function() btn:FireServer() end)
-                end
-                waitRandom(0.3, 0.6)
-            end
-            
-            waitRandom(config.settings.delay_min, config.settings.delay_max)
-        end
-        
-        log("Main loop berhenti.")
+        -- Jalankan loop tanpa spawn (langsung)
+        pcall(function()
+            autoLoop()
+        end)
     end
-
-    -- Event tombol Start/Stop
-    startBtn.MouseButton1Click:Connect(function()
-        if isRunning then
-            log("Menghentikan...")
-            isRunning = false
-            startBtn.Text = "▶ Start"
-            startBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
-            updateStatus("Berhenti")
-        else
-            log("Memulai...")
-            isRunning = true
-            startBtn.Text = "■ Stop"
-            startBtn.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
-            updateStatus("Berjalan...")
-            -- Jalankan di spawn agar tidak memblokir
-            spawn(function()
-                mainLoop()
-            end)
-        end
-    end)
-
-    return screenGui, frame
-end
-
--- Inisialisasi
-local function init()
-    if not isGameValid() then
-        log("Tidak dalam game!")
-        return
-    end
-    log("Inisialisasi...")
-    createGUI()
-    log("Siap!")
-end
-
-pcall(init)
+end)
