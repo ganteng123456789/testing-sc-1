@@ -1,207 +1,549 @@
--- Slime RNG | Simple Auto
+-- Free UI Library (Ringkas)
+-- Simpan sebagai .lua dan jalankan dengan executor
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "SimpleAuto"
-gui.Parent = game.CoreGui
+local FreeUI = {}
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 200, 0, 120)
-frame.Position = UDim2.new(0.5, -100, 0.5, -60)
-frame.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
-frame.BackgroundTransparency = 0.2
-frame.BorderSizePixel = 0
-frame.Parent = gui
+local _isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local _screenSize = workspace.CurrentCamera.ViewportSize
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
-title.Position = UDim2.new(0, 0, 0, 0)
-title.Text = "✦ Auto Slime ✦"
-title.TextColor3 = Color3.fromRGB(100, 200, 255)
-title.TextSize = 16
-title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBold
-title.Parent = frame
+local function RS(pc, mob) return _isMobile and mob or pc end
 
-local btn = Instance.new("TextButton")
-btn.Size = UDim2.new(0, 100, 0, 30)
-btn.Position = UDim2.new(0.5, -50, 0.5, -10)
-btn.Text = "Start"
-btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-btn.TextSize = 14
-btn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
-btn.BorderSizePixel = 0
-btn.Font = Enum.Font.GothamBold
-btn.Parent = frame
+local Theme = {
+    Background = Color3.fromRGB(22,22,28),
+    Sidebar = Color3.fromRGB(18,18,24),
+    TitleBar = Color3.fromRGB(16,16,22),
+    Accent = Color3.fromRGB(80,150,255),
+    Text = Color3.fromRGB(235,235,240),
+    TextDim = Color3.fromRGB(140,140,155),
+    Row = Color3.fromRGB(32,32,40),
+    RowAlt = Color3.fromRGB(28,28,36),
+    Hover = Color3.fromRGB(42,42,52),
+    ToggleOn = Color3.fromRGB(80,150,255),
+    ToggleOff = Color3.fromRGB(55,55,65),
+    SliderBg = Color3.fromRGB(50,50,60),
+    SliderFill = Color3.fromRGB(80,150,255),
+    InputBg = Color3.fromRGB(38,38,48),
+    Border = Color3.fromRGB(50,50,60),
+    DropdownBg = Color3.fromRGB(28,28,36),
+    Font = Enum.Font.GothamBold,
+    FontLight = Enum.Font.GothamMedium,
+    CornerRadius = UDim.new(0,8),
+    WW = 620, WH = 480, SW = 150, TH = 42, RH = 48,
+}
 
-local status = Instance.new("TextLabel")
-status.Size = UDim2.new(1, 0, 0, 20)
-status.Position = UDim2.new(0, 0, 1, -20)
-status.Text = "Status: Stop"
-status.TextColor3 = Color3.fromRGB(150, 150, 180)
-status.TextSize = 11
-status.BackgroundTransparency = 1
-status.Font = Enum.Font.Gotham
-status.Parent = frame
-
-local running = false
-
-local function doRoll()
-    local player = game.Players.LocalPlayer
-    if not player then return end
-    
-    local gui = player.PlayerGui
-    if not gui then return end
-    
-    local btn = gui:FindFirstChild("RollButton")
-    if btn then
-        pcall(function()
-            btn:FireServer()
-        end)
-    end
+local function Tween(obj, props, dur) 
+    if not obj then return end
+    TweenService:Create(obj, TweenInfo.new(dur or 0.25), props):Play() 
+end
+local function Corner(p,r) 
+    local c = Instance.new("UICorner") 
+    c.CornerRadius = r or Theme.CornerRadius 
+    c.Parent = p 
+    return c 
 end
 
-local function doFarm()
-    local player = game.Players.LocalPlayer
-    if not player then return end
-    
-    local gui = player.PlayerGui
-    if not gui then return end
-    
-    local btn = gui:FindFirstChild("FarmButton")
-    if btn then
-        pcall(function()
-            btn:FireServer()
-        end)
+local StateStore = {}
+function FreeUI:GetValue(n) return StateStore[n] end
+function FreeUI:SetValue(n,v) StateStore[n]=v end
+
+local ThreadManager = {}
+local _activeThreads = {}
+function ThreadManager:Start(key, interval, cb)
+    self:Stop(key)
+    _activeThreads[key] = task.spawn(function()
+        while _activeThreads[key] do
+            pcall(cb)
+            task.wait(interval or 1)
+        end
+    end)
+end
+function ThreadManager:Stop(key) 
+    if _activeThreads[key] then task.cancel(_activeThreads[key]); _activeThreads[key]=nil end
+end
+function ThreadManager:StopAll() 
+    for k in pairs(_activeThreads) do self:Stop(k) end
+end
+FreeUI.ThreadManager = ThreadManager
+
+local function CreateWindow(title)
+    for _,v in pairs(playerGui:GetChildren()) do 
+        if v.Name=="FreeUI_Window" then v:Destroy() end 
     end
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "FreeUI_Window"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = playerGui
+
+    local main = Instance.new("Frame")
+    main.Size = UDim2.new(0, Theme.WW, 0, Theme.WH)
+    main.AnchorPoint = Vector2.new(0.5,0.5)
+    main.Position = UDim2.new(0.5,0,0.5,0)
+    main.BackgroundColor3 = Theme.Background
+    main.BorderSizePixel = 0
+    main.ClipsDescendants = true
+    main.Parent = screenGui
+    Corner(main, UDim.new(0,12))
+
+    local inner = Instance.new("Frame")
+    inner.Size = UDim2.new(1,0,1,0)
+    inner.BackgroundTransparency = 1
+    inner.Parent = main
+
+    -- Title Bar
+    local titleBar = Instance.new("Frame")
+    titleBar.Size = UDim2.new(1,0,0,Theme.TH)
+    titleBar.BackgroundColor3 = Theme.TitleBar
+    titleBar.BorderSizePixel = 0
+    titleBar.Parent = inner
+
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1,-100,1,0)
+    titleLabel.Position = UDim2.new(0,50,0,0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title or "Free UI"
+    titleLabel.TextColor3 = Theme.Text
+    titleLabel.TextSize = RS(18,16)
+    titleLabel.Font = Theme.Font
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = titleBar
+
+    -- Close Button
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0,30,0,30)
+    closeBtn.Position = UDim2.new(1,-40,0.5,-15)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(60,35,35)
+    closeBtn.Text = ""
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Parent = titleBar
+    Corner(closeBtn, Theme.CornerRadius)
+
+    local x1 = Instance.new("Frame")
+    x1.Size = UDim2.new(0,12,0,2)
+    x1.AnchorPoint = Vector2.new(0.5,0.5)
+    x1.Position = UDim2.new(0.5,0,0.5,0)
+    x1.BackgroundColor3 = Theme.Text
+    x1.Rotation = 45
+    x1.BorderSizePixel = 0
+    x1.Parent = closeBtn
+    local x2 = x1:Clone()
+    x2.Rotation = -45
+    x2.Parent = closeBtn
+
+    closeBtn.MouseButton1Click:Connect(function()
+        screenGui:Destroy()
+        ThreadManager:StopAll()
+    end)
+
+    -- Sidebar
+    local sidebar = Instance.new("Frame")
+    sidebar.Size = UDim2.new(0,Theme.SW,1,-Theme.TH)
+    sidebar.Position = UDim2.new(0,0,0,Theme.TH)
+    sidebar.BackgroundColor3 = Theme.Sidebar
+    sidebar.BorderSizePixel = 0
+    sidebar.Parent = inner
+    Corner(sidebar, Theme.CornerRadius)
+
+    local tabContainer = Instance.new("Frame")
+    tabContainer.Size = UDim2.new(1,0,1,-20)
+    tabContainer.Position = UDim2.new(0,0,0,10)
+    tabContainer.BackgroundTransparency = 1
+    tabContainer.Parent = sidebar
+    local tabLayout = ListLayout(tabContainer, 4)
+
+    -- Content Area
+    local content = Instance.new("Frame")
+    content.Size = UDim2.new(1,-Theme.SW-1,1,-Theme.TH-10)
+    content.Position = UDim2.new(0,Theme.SW+1,0,Theme.TH)
+    content.BackgroundColor3 = Theme.Background
+    content.BorderSizePixel = 0
+    content.Parent = inner
+    Corner(content, Theme.CornerRadius)
+
+    local pages = {}
+    local tabButtons = {}
+    local currentTab = nil
+
+    local function SwitchTab(name)
+        currentTab = name
+        for n, pg in pairs(pages) do
+            pg.Visible = (n == name)
+        end
+        for n, btn in pairs(tabButtons) do
+            local lbl = btn:FindFirstChild("Label")
+            if n == name then
+                btn.BackgroundColor3 = Theme.SelectedTab
+                if lbl then lbl.TextColor3 = Theme.Text end
+            else
+                btn.BackgroundColor3 = Theme.Sidebar
+                if lbl then lbl.TextColor3 = Theme.TextDim end
+            end
+        end
+    end
+
+    local function AddTab(name)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1,-16,0,42)
+        btn.BackgroundColor3 = Theme.Sidebar
+        btn.BorderSizePixel = 0
+        btn.Text = ""
+        btn.AutoButtonColor = false
+        btn.LayoutOrder = #tabButtons + 1
+        btn.Parent = tabContainer
+        Corner(btn, Theme.CornerRadius)
+
+        local lbl = Instance.new("TextLabel")
+        lbl.Name = "Label"
+        lbl.Size = UDim2.new(1,0,1,0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = name
+        lbl.TextColor3 = Theme.TextDim
+        lbl.TextSize = RS(13,12)
+        lbl.Font = Theme.FontLight
+        lbl.TextXAlignment = Enum.TextXAlignment.Center
+        lbl.Parent = btn
+
+        btn.MouseButton1Click:Connect(function() SwitchTab(name) end)
+        tabButtons[name] = btn
+
+        local page = Instance.new("ScrollingFrame")
+        page.Size = UDim2.new(1,0,1,0)
+        page.BackgroundTransparency = 1
+        page.BorderSizePixel = 0
+        page.ScrollBarThickness = 4
+        page.ScrollBarImageColor3 = Theme.Accent
+        page.CanvasSize = UDim2.new(0,0,0,0)
+        page.Visible = (#tabButtons == 1)
+        page.Parent = content
+        Padding(page, 14,14,16,16)
+
+        local layout = ListLayout(page, 6)
+        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            page.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 40)
+        end)
+        pages[name] = page
+        if #tabButtons == 1 then currentTab = name end
+
+        local tabObj = {}
+        local itemCount = 0
+        local function nextOrder() itemCount = itemCount + 1; return itemCount end
+
+        function tabObj:AddSection(t)
+            local o = nextOrder()
+            local l = Instance.new("TextLabel")
+            l.Size = UDim2.new(1,0,0,30)
+            l.BackgroundTransparency = 1
+            l.Text = t
+            l.TextColor3 = Theme.Accent
+            l.TextSize = RS(15,14)
+            l.Font = Theme.Font
+            l.TextXAlignment = Enum.TextXAlignment.Left
+            l.LayoutOrder = o
+            l.Parent = page
+            return l
+        end
+
+        function tabObj:AddToggle(label, default, cb)
+            local o = nextOrder()
+            local saved = StateStore[label]
+            local state = (saved ~= nil) and saved or (default or false)
+            StateStore[label] = state
+
+            local row = Instance.new("Frame")
+            row.Size = UDim2.new(1,0,0,Theme.RH)
+            row.BackgroundColor3 = RowColor(o)
+            row.BorderSizePixel = 0
+            row.LayoutOrder = o
+            row.Parent = page
+            Corner(row, Theme.CornerRadius)
+
+            local lbl = Instance.new("TextLabel")
+            lbl.Size = UDim2.new(1,-80,1,0)
+            lbl.Position = UDim2.new(0,18,0,0)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = label
+            lbl.TextColor3 = Theme.Text
+            lbl.TextSize = RS(13,12)
+            lbl.Font = Theme.FontLight
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.Parent = row
+
+            local tbg = Instance.new("Frame")
+            tbg.Size = UDim2.new(0,44,0,24)
+            tbg.Position = UDim2.new(1,-56,0.5,-12)
+            tbg.BackgroundColor3 = state and Theme.ToggleOn or Theme.ToggleOff
+            tbg.BorderSizePixel = 0
+            tbg.Parent = row
+            Corner(tbg, UDim.new(1,0))
+
+            local circle = Instance.new("Frame")
+            circle.Size = UDim2.new(0,20,0,20)
+            circle.Position = state and UDim2.new(1,-22,0.5,-10) or UDim2.new(0,2,0.5,-10)
+            circle.BackgroundColor3 = Theme.Text
+            circle.BorderSizePixel = 0
+            circle.Parent = tbg
+            Corner(circle, UDim.new(1,0))
+
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1,0,1,0)
+            btn.BackgroundTransparency = 1
+            btn.Text = ""
+            btn.Parent = tbg
+
+            btn.MouseButton1Click:Connect(function()
+                state = not state
+                StateStore[label] = state
+                Tween(tbg, {BackgroundColor3 = state and Theme.ToggleOn or Theme.ToggleOff})
+                Tween(circle, {Position = state and UDim2.new(1,-22,0.5,-10) or UDim2.new(0,2,0.5,-10)})
+                if cb then pcall(cb, state) end
+                if state and FreeUI.ThreadManager then
+                    FreeUI.ThreadManager:Start(label, 1, function() if cb then pcall(cb, true) end end)
+                else
+                    FreeUI.ThreadManager:Stop(label)
+                end
+            end)
+
+            if state and cb then
+                FreeUI.ThreadManager:Start(label, 1, function() pcall(cb, true) end)
+            end
+
+            return { Set = function(_,v) btn.MouseButton1Click:Fire() end, Get = function() return state end }
+        end
+
+        function tabObj:AddButton(label, cb)
+            local o = nextOrder()
+            local row = Instance.new("Frame")
+            row.Size = UDim2.new(1,0,0,Theme.RH)
+            row.BackgroundColor3 = RowColor(o)
+            row.BorderSizePixel = 0
+            row.LayoutOrder = o
+            row.Parent = page
+            Corner(row, Theme.CornerRadius)
+
+            local lbl = Instance.new("TextLabel")
+            lbl.Size = UDim2.new(1,-130,1,0)
+            lbl.Position = UDim2.new(0,18,0,0)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = label
+            lbl.TextColor3 = Theme.Text
+            lbl.TextSize = RS(13,12)
+            lbl.Font = Theme.FontLight
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.Parent = row
+
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(0,100,0,32)
+            btn.Position = UDim2.new(1,-116,0.5,-16)
+            btn.BackgroundColor3 = Theme.Accent
+            btn.Text = "Execute"
+            btn.TextColor3 = Theme.Text
+            btn.TextSize = RS(13,12)
+            btn.Font = Theme.Font
+            btn.BorderSizePixel = 0
+            btn.AutoButtonColor = false
+            btn.Parent = row
+            Corner(btn, Theme.CornerRadius)
+
+            btn.MouseButton1Click:Connect(function()
+                if cb then pcall(cb) end
+                Tween(btn, {Size = UDim2.new(0,94,0,28)}, 0.08)
+                task.wait(0.08)
+                Tween(btn, {Size = UDim2.new(0,100,0,32)}, 0.1)
+            end)
+
+            return btn
+        end
+
+        function tabObj:AddSlider(label, min, max, default, cb)
+            local o = nextOrder()
+            local saved = StateStore[label]
+            local value = (saved ~= nil and type(saved)=="number") and math.clamp(saved,min,max) or (default or min)
+            StateStore[label] = value
+
+            local row = Instance.new("Frame")
+            row.Size = UDim2.new(1,0,0,Theme.RH+4)
+            row.BackgroundColor3 = RowColor(o)
+            row.BorderSizePixel = 0
+            row.LayoutOrder = o
+            row.Parent = page
+            Corner(row, Theme.CornerRadius)
+
+            local lbl = Instance.new("TextLabel")
+            lbl.Size = UDim2.new(0,180,1,0)
+            lbl.Position = UDim2.new(0,18,0,0)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = label
+            lbl.TextColor3 = Theme.Text
+            lbl.TextSize = RS(13,12)
+            lbl.Font = Theme.FontLight
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.Parent = row
+
+            local valLabel = Instance.new("TextLabel")
+            valLabel.Size = UDim2.new(0,40,0,22)
+            valLabel.Position = UDim2.new(1,-160,0.5,-11)
+            valLabel.BackgroundColor3 = Theme.Accent
+            valLabel.BackgroundTransparency = 0.85
+            valLabel.BorderSizePixel = 0
+            valLabel.Text = tostring(math.floor(value))
+            valLabel.TextColor3 = Theme.Accent
+            valLabel.TextSize = 13
+            valLabel.Font = Theme.Font
+            valLabel.Parent = row
+            Corner(valLabel, UDim.new(0,5))
+
+            local track = Instance.new("Frame")
+            track.Size = UDim2.new(0,100,0,6)
+            track.Position = UDim2.new(1,-112,0.5,-3)
+            track.BackgroundColor3 = Theme.SliderBg
+            track.BorderSizePixel = 0
+            track.Parent = row
+            Corner(track, UDim.new(1,0))
+
+            local pct = (value-min)/(max-min)
+            local fill = Instance.new("Frame")
+            fill.Size = UDim2.new(pct,0,1,0)
+            fill.BackgroundColor3 = Theme.SliderFill
+            fill.BorderSizePixel = 0
+            fill.Parent = track
+            Corner(fill, UDim.new(1,0))
+
+            local knob = Instance.new("Frame")
+            knob.Size = UDim2.new(0,16,0,16)
+            knob.Position = UDim2.new(pct,-8,0.5,-8)
+            knob.BackgroundColor3 = Theme.Text
+            knob.BorderSizePixel = 0
+            knob.Parent = track
+            Corner(knob, UDim.new(1,0))
+
+            local sliding = false
+            local hit = Instance.new("TextButton")
+            hit.Size = UDim2.new(1,20,1,20)
+            hit.Position = UDim2.new(0,-10,0,-10)
+            hit.BackgroundTransparency = 1
+            hit.Text = ""
+            hit.Parent = track
+
+            local function update(v)
+                v = math.clamp(v, min, max)
+                local p = (v-min)/(max-min)
+                value = v
+                StateStore[label] = v
+                valLabel.Text = tostring(math.floor(v))
+                fill.Size = UDim2.new(p,0,1,0)
+                knob.Position = UDim2.new(p,-8,0.5,-8)
+                if cb then pcall(cb, v) end
+            end
+
+            hit.InputBegan:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                    sliding = true
+                    local x = math.clamp((i.Position.X - track.AbsolutePosition.X)/track.AbsoluteSize.X, 0, 1)
+                    update(min + (max-min)*x)
+                end
+            end)
+            hit.InputEnded:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                    sliding = false
+                end
+            end)
+            UserInputService.InputChanged:Connect(function(i)
+                if sliding and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+                    local x = math.clamp((i.Position.X - track.AbsolutePosition.X)/track.AbsoluteSize.X, 0, 1)
+                    update(min + (max-min)*x)
+                end
+            end)
+
+            return { Set = function(_,v) update(v) end, Get = function() return value end }
+        end
+
+        function tabObj:AddLabel(text)
+            local o = nextOrder()
+            local l = Instance.new("TextLabel")
+            l.Size = UDim2.new(1,0,0,28)
+            l.BackgroundTransparency = 1
+            l.Text = text
+            l.TextColor3 = Theme.TextDim
+            l.TextSize = RS(13,12)
+            l.Font = Theme.FontLight
+            l.TextXAlignment = Enum.TextXAlignment.Left
+            l.LayoutOrder = o
+            l.Parent = page
+            return l
+        end
+
+        function tabObj:AddSpacer(h)
+            local o = nextOrder()
+            local s = Instance.new("Frame")
+            s.Size = UDim2.new(1,0,0,h or 16)
+            s.BackgroundTransparency = 1
+            s.LayoutOrder = o
+            s.Parent = page
+            return s
+        end
+
+        return tabObj
+    end
+
+    -- Tambahkan tab default
+    local mainTab = AddTab("Main")
+    mainTab:AddSection("Fitur")
+    local toggle1 = mainTab:AddToggle("Auto Roll", false, function(state)
+        print("Auto Roll:", state)
+    end)
+    mainTab:AddToggle("Auto Farm", false, function(state)
+        print("Auto Farm:", state)
+    end)
+    mainTab:AddToggle("Auto Rebirth", false, function(state)
+        print("Auto Rebirth:", state)
+    end)
+    mainTab:AddSection("Pengaturan")
+    mainTab:AddSlider("Delay", 0.05, 2, 0.5, function(v)
+        print("Delay:", v)
+    end)
+    mainTab:AddButton("Test", function()
+        FreeUI:Notify("Info", "Tombol ditekan!", "info")
+    end)
+    mainTab:AddLabel("✨ Free UI Library v1.0")
+
+    -- Halaman kedua
+    local settingsTab = AddTab("Settings")
+    settingsTab:AddSection("Info")
+    settingsTab:AddLabel("Library: Free UI")
+    settingsTab:AddLabel("Versi: 1.0")
+    settingsTab:AddButton("Notifikasi", function()
+        FreeUI:Notify("Sukses", "Ini adalah notifikasi!", "success")
+        FreeUI:Notify("Peringatan", "Ini peringatan!", "warning")
+        FreeUI:Notify("Error", "Ini error!", "error")
+    end)
+
+    -- Notifikasi container
+    EnsureNotifContainer(screenGui)
+
+    return {
+        Destroy = function() screenGui:Destroy(); ThreadManager:StopAll() end,
+        Notify = FreeUI.Notify,
+        GetValue = FreeUI.GetValue,
+        SetValue = FreeUI.SetValue,
+        ThreadManager = ThreadManager,
+    }
 end
 
-local function doRebirth()
-    local player = game.Players.LocalPlayer
-    if not player then return end
-    
-    local gui = player.PlayerGui
-    if not gui then return end
-    
-    local btn = gui:FindFirstChild("RebirthButton")
-    if btn then
-        pcall(function()
-            btn:FireServer()
-        end)
-    end
+FreeUI.CreateWindow = CreateWindow
+FreeUI.Notify = function(_,t,m,nt,d) 
+    local sg = playerGui:FindFirstChild("FreeUI_Window")
+    if not sg then return end
+    EnsureNotifContainer(sg)
+    FreeUI:Notify(t,m,nt,d) 
 end
 
-local function doPet()
-    local player = game.Players.LocalPlayer
-    if not player then return end
-    
-    local gui = player.PlayerGui
-    if not gui then return end
-    
-    local btn = gui:FindFirstChild("PetButton")
-    if btn then
-        pcall(function()
-            btn:FireServer()
-        end)
-    end
-end
+-- Jalankan
+local win = FreeUI.CreateWindow("Free UI v1.0")
 
-local function doClick()
-    local player = game.Players.LocalPlayer
-    if not player then return end
-    
-    local gui = player.PlayerGui
-    if not gui then return end
-    
-    local btn = gui:FindFirstChild("ClickButton")
-    if btn then
-        pcall(function()
-            btn:FireServer()
-        end)
-    end
-end
-
-local function doCollect()
-    local player = game.Players.LocalPlayer
-    if not player then return end
-    
-    local gui = player.PlayerGui
-    if not gui then return end
-    
-    local btn = gui:FindFirstChild("CollectButton")
-    if btn then
-        pcall(function()
-            btn:FireServer()
-        end)
-    end
-end
-
-local function doHatch()
-    local player = game.Players.LocalPlayer
-    if not player then return end
-    
-    local gui = player.PlayerGui
-    if not gui then return end
-    
-    local btn = gui:FindFirstChild("HatchButton")
-    if btn then
-        pcall(function()
-            btn:FireServer()
-        end)
-    end
-end
-
-local function doQuest()
-    local player = game.Players.LocalPlayer
-    if not player then return end
-    
-    local gui = player.PlayerGui
-    if not gui then return end
-    
-    local btn = gui:FindFirstChild("QuestButton")
-    if btn then
-        pcall(function()
-            btn:FireServer()
-        end)
-    end
-end
-
-local function autoLoop()
-    while running do
-        doRoll()
-        wait(0.2)
-        doFarm()
-        wait(0.3)
-        doRebirth()
-        wait(0.4)
-        doPet()
-        wait(0.2)
-        doClick()
-        wait(0.1)
-        doCollect()
-        wait(0.2)
-        doHatch()
-        wait(0.3)
-        doQuest()
-        wait(0.4)
-        wait(0.1)
-    end
-end
-
-btn.MouseButton1Click:Connect(function()
-    if running then
-        running = false
-        btn.Text = "Start"
-        btn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
-        status.Text = "Status: Stop"
-    else
-        running = true
-        btn.Text = "Stop"
-        btn.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
-        status.Text = "Status: Running"
-        
-        -- Jalankan loop tanpa spawn (langsung)
-        pcall(function()
-            autoLoop()
-        end)
-    end
-end)
+return FreeUI
