@@ -1,7 +1,6 @@
 --[[
-    Slime RNG | Free Auto (No Key, No Webhook, No Limits)
-    Fully functional. Fully free.
---]]
+    Slime RNG | Free Auto (Dengan Log untuk Melihat Aksi)
+]]
 
 local config = {
     auto_roll = true,
@@ -16,14 +15,12 @@ local config = {
         delay_min = 0.1,
         delay_max = 0.5,
         safe_mode = true,
-        debug = false
+        debug = true  -- <-- Diaktifkan agar muncul log
     }
 }
 
 local function log(msg)
-    if config.settings.debug then
-        print("[SlimeRNG-Free] " .. tostring(msg))
-    end
+    print("[SlimeRNG-Free] " .. tostring(msg))
 end
 
 local function waitRandom(min, max)
@@ -32,6 +29,7 @@ local function waitRandom(min, max)
 end
 
 local function findObject(path)
+    log("Mencari: " .. path)
     local parts = {}
     for part in string.gmatch(path, "[^%.]+") do
         table.insert(parts, part)
@@ -40,10 +38,15 @@ local function findObject(path)
     for _, part in ipairs(parts) do
         if current then
             current = current:FindFirstChild(part)
+            if not current then
+                log("Tidak ditemukan: " .. part)
+                return nil
+            end
         else
             return nil
         end
     end
+    log("Ditemukan: " .. path)
     return current
 end
 
@@ -51,6 +54,7 @@ local function isGameValid()
     local players = game:GetService("Players")
     local localPlayer = players.LocalPlayer
     if not localPlayer then
+        log("ERROR: Tidak ada pemain lokal!")
         return false
     end
     return true
@@ -146,7 +150,9 @@ local function createGUI()
     end
 
     startBtn.MouseButton1Click:Connect(function()
+        log("Tombol Start/Stop ditekan!")
         if isRunning then
+            log("Menghentikan skrip...")
             isRunning = false
             for _, task in ipairs(autoTasks) do
                 task:Disconnect()
@@ -155,11 +161,14 @@ local function createGUI()
             startBtn.Text = "▶ Start"
             startBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
             updateStatus("Berhenti")
+            log("Skrip berhenti.")
         else
+            log("Memulai skrip...")
             isRunning = true
             startBtn.Text = "■ Stop"
             startBtn.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
             updateStatus("Berjalan...")
+            log("Memanggil mainLoop...")
             mainLoop()
         end
     end)
@@ -168,9 +177,18 @@ local function createGUI()
 end
 
 local function mainLoop()
+    log("mainLoop dimulai!")
+    
     local function roll()
+        log("Mencoba roll...")
         local btn = findObject("Players.LocalPlayer.PlayerGui.RollButton")
-        if btn then btn:FireServer(); waitRandom(0.1, 0.3); return true end
+        if btn then 
+            log("RollButton ditemukan! FireServer...")
+            btn:FireServer() 
+            waitRandom(0.1, 0.3) 
+            return true 
+        end
+        log("RollButton TIDAK ditemukan.")
         return false
     end
 
@@ -217,7 +235,13 @@ local function mainLoop()
     end
 
     task.spawn(function()
+        log("Loop utama dimulai!")
+        local loopCount = 0
         while isRunning and isGameValid() do
+            loopCount = loopCount + 1
+            if loopCount % 10 == 0 then
+                log("Loop ke-" .. loopCount .. " masih berjalan...")
+            end
             if config.auto_roll then roll() end
             if config.auto_farm then farm() end
             if config.auto_rebirth then rebirth() end
@@ -228,25 +252,29 @@ local function mainLoop()
             if config.auto_quest then quest() end
             waitRandom(config.settings.delay_min, config.settings.delay_max)
         end
+        log("Loop utama berhenti.")
     end)
 end
 
 local function init()
+    log("Inisialisasi...")
     if not isGameValid() then
         log("Tidak dalam game!")
         return
     end
-
-    log("Slime RNG Free Auto dimulai...")
+    log("Game valid. Membuat GUI...")
     createGUI()
+    log("GUI dibuat. Skrip siap.")
 end
 
 local success, err = pcall(init)
 if not success then
     warn("Error: " .. tostring(err))
+    log("Error: " .. tostring(err))
 end
 
 game:GetService("Players").LocalPlayer.OnTeleport:Connect(function()
+    log("Teleport terdeteksi. Membersihkan...")
     local gui = game.CoreGui:FindFirstChild("SlimeRNG_Free")
     if gui then gui:Destroy() end
     isRunning = false
