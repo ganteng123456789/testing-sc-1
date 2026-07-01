@@ -1,5 +1,6 @@
 --[[
-    Slime RNG | Free Auto (Dengan Log untuk Melihat Aksi)
+    Slime RNG | Free Auto (Universal)
+    Menggunakan spawn() dan wait() untuk kompatibilitas
 ]]
 
 local config = {
@@ -14,22 +15,22 @@ local config = {
     settings = {
         delay_min = 0.1,
         delay_max = 0.5,
-        safe_mode = true,
-        debug = true  -- <-- Diaktifkan agar muncul log
+        debug = true
     }
 }
 
 local function log(msg)
-    print("[SlimeRNG-Free] " .. tostring(msg))
+    if config.settings.debug then
+        print("[SlimeRNG] " .. tostring(msg))
+    end
 end
 
 local function waitRandom(min, max)
     local delay = math.random() * (max - min) + min
-    task.wait(delay)
+    wait(delay)  -- <-- pakai wait() biasa
 end
 
 local function findObject(path)
-    log("Mencari: " .. path)
     local parts = {}
     for part in string.gmatch(path, "[^%.]+") do
         table.insert(parts, part)
@@ -39,14 +40,12 @@ local function findObject(path)
         if current then
             current = current:FindFirstChild(part)
             if not current then
-                log("Tidak ditemukan: " .. part)
                 return nil
             end
         else
             return nil
         end
     end
-    log("Ditemukan: " .. path)
     return current
 end
 
@@ -54,11 +53,14 @@ local function isGameValid()
     local players = game:GetService("Players")
     local localPlayer = players.LocalPlayer
     if not localPlayer then
-        log("ERROR: Tidak ada pemain lokal!")
         return false
     end
     return true
 end
+
+-- Variabel global untuk kontrol
+isRunning = false
+autoTasks = {}
 
 local function createGUI()
     local screenGui = Instance.new("ScreenGui")
@@ -142,144 +144,126 @@ local function createGUI()
     infoLabel.Font = Enum.Font.Gotham
     infoLabel.Parent = frame
 
-    local isRunning = false
-    local autoTasks = {}
-
     local function updateStatus(text)
         statusLabel.Text = "Status: " .. text
     end
 
-    startBtn.MouseButton1Click:Connect(function()
-        log("Tombol Start/Stop ditekan!")
-        if isRunning then
-            log("Menghentikan skrip...")
-            isRunning = false
-            for _, task in ipairs(autoTasks) do
-                task:Disconnect()
+    -- Fungsi utama yang akan dijalankan di dalam spawn
+    local function mainLoop()
+        log("Main loop dimulai!")
+        
+        while isRunning and isGameValid() do
+            -- Roll
+            if config.auto_roll then
+                local btn = findObject("Players.LocalPlayer.PlayerGui.RollButton")
+                if btn then
+                    pcall(function() btn:FireServer() end)
+                end
+                waitRandom(0.1, 0.3)
             end
-            autoTasks = {}
+            
+            -- Farm
+            if config.auto_farm then
+                local btn = findObject("Players.LocalPlayer.PlayerGui.FarmButton")
+                if btn then
+                    pcall(function() btn:FireServer() end)
+                end
+                waitRandom(0.2, 0.5)
+            end
+            
+            -- Rebirth
+            if config.auto_rebirth then
+                local btn = findObject("Players.LocalPlayer.PlayerGui.RebirthButton")
+                if btn then
+                    pcall(function() btn:FireServer() end)
+                end
+                waitRandom(0.3, 0.7)
+            end
+            
+            -- Pet
+            if config.auto_pet then
+                local btn = findObject("Players.LocalPlayer.PlayerGui.PetButton")
+                if btn then
+                    pcall(function() btn:FireServer() end)
+                end
+                waitRandom(0.1, 0.3)
+            end
+            
+            -- Click
+            if config.auto_click then
+                local btn = findObject("Players.LocalPlayer.PlayerGui.ClickButton")
+                if btn then
+                    pcall(function() btn:FireServer() end)
+                end
+                waitRandom(0.05, 0.15)
+            end
+            
+            -- Collect
+            if config.auto_collect then
+                local btn = findObject("Players.LocalPlayer.PlayerGui.CollectButton")
+                if btn then
+                    pcall(function() btn:FireServer() end)
+                end
+                waitRandom(0.1, 0.2)
+            end
+            
+            -- Hatch
+            if config.auto_hatch then
+                local btn = findObject("Players.LocalPlayer.PlayerGui.HatchButton")
+                if btn then
+                    pcall(function() btn:FireServer() end)
+                end
+                waitRandom(0.2, 0.4)
+            end
+            
+            -- Quest
+            if config.auto_quest then
+                local btn = findObject("Players.LocalPlayer.PlayerGui.QuestButton")
+                if btn then
+                    pcall(function() btn:FireServer() end)
+                end
+                waitRandom(0.3, 0.6)
+            end
+            
+            waitRandom(config.settings.delay_min, config.settings.delay_max)
+        end
+        
+        log("Main loop berhenti.")
+    end
+
+    -- Event tombol Start/Stop
+    startBtn.MouseButton1Click:Connect(function()
+        if isRunning then
+            log("Menghentikan...")
+            isRunning = false
             startBtn.Text = "▶ Start"
             startBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
             updateStatus("Berhenti")
-            log("Skrip berhenti.")
         else
-            log("Memulai skrip...")
+            log("Memulai...")
             isRunning = true
             startBtn.Text = "■ Stop"
             startBtn.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
             updateStatus("Berjalan...")
-            log("Memanggil mainLoop...")
-            mainLoop()
+            -- Jalankan di spawn agar tidak memblokir
+            spawn(function()
+                mainLoop()
+            end)
         end
     end)
 
     return screenGui, frame
 end
 
-local function mainLoop()
-    log("mainLoop dimulai!")
-    
-    local function roll()
-        log("Mencoba roll...")
-        local btn = findObject("Players.LocalPlayer.PlayerGui.RollButton")
-        if btn then 
-            log("RollButton ditemukan! FireServer...")
-            btn:FireServer() 
-            waitRandom(0.1, 0.3) 
-            return true 
-        end
-        log("RollButton TIDAK ditemukan.")
-        return false
-    end
-
-    local function farm()
-        local btn = findObject("Players.LocalPlayer.PlayerGui.FarmButton")
-        if btn then btn:FireServer(); waitRandom(0.2, 0.5); return true end
-        return false
-    end
-
-    local function rebirth()
-        local btn = findObject("Players.LocalPlayer.PlayerGui.RebirthButton")
-        if btn then btn:FireServer(); waitRandom(0.3, 0.7); return true end
-        return false
-    end
-
-    local function pet()
-        local btn = findObject("Players.LocalPlayer.PlayerGui.PetButton")
-        if btn then btn:FireServer(); waitRandom(0.1, 0.3); return true end
-        return false
-    end
-
-    local function click()
-        local btn = findObject("Players.LocalPlayer.PlayerGui.ClickButton")
-        if btn then btn:FireServer(); waitRandom(0.05, 0.15); return true end
-        return false
-    end
-
-    local function collect()
-        local btn = findObject("Players.LocalPlayer.PlayerGui.CollectButton")
-        if btn then btn:FireServer(); waitRandom(0.1, 0.2); return true end
-        return false
-    end
-
-    local function hatch()
-        local btn = findObject("Players.LocalPlayer.PlayerGui.HatchButton")
-        if btn then btn:FireServer(); waitRandom(0.2, 0.4); return true end
-        return false
-    end
-
-    local function quest()
-        local btn = findObject("Players.LocalPlayer.PlayerGui.QuestButton")
-        if btn then btn:FireServer(); waitRandom(0.3, 0.6); return true end
-        return false
-    end
-
-    task.spawn(function()
-        log("Loop utama dimulai!")
-        local loopCount = 0
-        while isRunning and isGameValid() do
-            loopCount = loopCount + 1
-            if loopCount % 10 == 0 then
-                log("Loop ke-" .. loopCount .. " masih berjalan...")
-            end
-            if config.auto_roll then roll() end
-            if config.auto_farm then farm() end
-            if config.auto_rebirth then rebirth() end
-            if config.auto_pet then pet() end
-            if config.auto_click then click() end
-            if config.auto_collect then collect() end
-            if config.auto_hatch then hatch() end
-            if config.auto_quest then quest() end
-            waitRandom(config.settings.delay_min, config.settings.delay_max)
-        end
-        log("Loop utama berhenti.")
-    end)
-end
-
+-- Inisialisasi
 local function init()
-    log("Inisialisasi...")
     if not isGameValid() then
         log("Tidak dalam game!")
         return
     end
-    log("Game valid. Membuat GUI...")
+    log("Inisialisasi...")
     createGUI()
-    log("GUI dibuat. Skrip siap.")
+    log("Siap!")
 end
 
-local success, err = pcall(init)
-if not success then
-    warn("Error: " .. tostring(err))
-    log("Error: " .. tostring(err))
-end
-
-game:GetService("Players").LocalPlayer.OnTeleport:Connect(function()
-    log("Teleport terdeteksi. Membersihkan...")
-    local gui = game.CoreGui:FindFirstChild("SlimeRNG_Free")
-    if gui then gui:Destroy() end
-    isRunning = false
-    for _, task in ipairs(autoTasks) do
-        task:Disconnect()
-    end
-    autoTasks = {}
-end)
+pcall(init)
