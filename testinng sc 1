@@ -1,5 +1,5 @@
--- Free UI Library (Ringkas)
--- Simpan sebagai .lua dan jalankan dengan executor
+-- Free UI Library (Universal - tanpa task)
+-- Simpan sebagai .lua dan jalankan dengan executor apapun
 
 local FreeUI = {}
 local Players = game:GetService("Players")
@@ -47,33 +47,173 @@ local function Corner(p,r)
     c.Parent = p 
     return c 
 end
+local function Stroke(p,col,th,tr)
+    local s = Instance.new("UIStroke")
+    s.Color = col or Theme.Border
+    s.Thickness = th or 1
+    s.Transparency = tr or 0.5
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.Parent = p
+    return s
+end
+local function Padding(p,t,b,l,r)
+    local pd = Instance.new("UIPadding")
+    pd.PaddingTop = UDim.new(0,t or 0)
+    pd.PaddingBottom = UDim.new(0,b or 0)
+    pd.PaddingLeft = UDim.new(0,l or 0)
+    pd.PaddingRight = UDim.new(0,r or 0)
+    pd.Parent = p
+    return pd
+end
+local function ListLayout(p,pad,dir)
+    local l = Instance.new("UIListLayout")
+    l.FillDirection = dir or Enum.FillDirection.Vertical
+    l.SortOrder = Enum.SortOrder.LayoutOrder
+    l.Padding = UDim.new(0,pad or 6)
+    l.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    l.Parent = p
+    return l
+end
+local function HoverAccent(row)
+    local bar = Instance.new("Frame")
+    bar.Name = "HoverBar"
+    bar.Size = UDim2.new(0,3,0.55,0)
+    bar.Position = UDim2.new(0,0,0.225,0)
+    bar.BackgroundColor3 = Theme.Accent
+    bar.BackgroundTransparency = 1
+    bar.BorderSizePixel = 0
+    bar.ZIndex = row.ZIndex + 1
+    bar.Parent = row
+    Corner(bar, UDim.new(1,0))
+    return bar
+end
+local function SetupHover(row,baseColor,accentBar)
+    if _isMobile then return end
+    row.MouseEnter:Connect(function()
+        Tween(row, {BackgroundColor3 = Theme.Hover}, 0.15)
+        if accentBar then Tween(accentBar, {BackgroundTransparency = 0.2}, 0.15) end
+    end)
+    row.MouseLeave:Connect(function()
+        Tween(row, {BackgroundColor3 = baseColor}, 0.15)
+        if accentBar then Tween(accentBar, {BackgroundTransparency = 1}, 0.15) end
+    end)
+end
+local function RowColor(i) return (i%2==0) and Theme.Row or Theme.RowAlt end
 
 local StateStore = {}
 function FreeUI:GetValue(n) return StateStore[n] end
-function FreeUI:SetValue(n,v) StateStore[n]=v end
+function FreeUI:SetValue(n,v) StateStore[n] = v end
 
 local ThreadManager = {}
 local _activeThreads = {}
 function ThreadManager:Start(key, interval, cb)
     self:Stop(key)
-    _activeThreads[key] = task.spawn(function()
+    _activeThreads[key] = spawn(function()
         while _activeThreads[key] do
             pcall(cb)
-            task.wait(interval or 1)
+            wait(interval or 1)
         end
     end)
 end
-function ThreadManager:Stop(key) 
-    if _activeThreads[key] then task.cancel(_activeThreads[key]); _activeThreads[key]=nil end
+function ThreadManager:Stop(key)
+    _activeThreads[key] = nil
 end
-function ThreadManager:StopAll() 
+function ThreadManager:StopAll()
     for k in pairs(_activeThreads) do self:Stop(k) end
 end
 FreeUI.ThreadManager = ThreadManager
 
+local NotifContainer = nil
+local function EnsureNotifContainer(sg)
+    if NotifContainer and NotifContainer.Parent then return end
+    NotifContainer = Instance.new("Frame")
+    NotifContainer.Name = "FreeUI_Notifications"
+    if _isMobile then
+        local nw = math.floor(_screenSize.X * 0.92)
+        NotifContainer.Size = UDim2.new(0, nw, 1, -20)
+        NotifContainer.Position = UDim2.new(0.5, -math.floor(nw/2), 0, 10)
+    else
+        NotifContainer.Size = UDim2.new(0, 280, 1, -20)
+        NotifContainer.Position = UDim2.new(1, -290, 0, 10)
+    end
+    NotifContainer.BackgroundTransparency = 1
+    NotifContainer.ZIndex = 200
+    NotifContainer.Parent = sg
+    local l = Instance.new("UIListLayout")
+    l.FillDirection = Enum.FillDirection.Vertical
+    l.VerticalAlignment = Enum.VerticalAlignment.Bottom
+    l.SortOrder = Enum.SortOrder.LayoutOrder
+    l.Padding = UDim.new(0,8)
+    l.Parent = NotifContainer
+end
+
+function FreeUI:Notify(title, message, notifType, duration)
+    if not NotifContainer then return end
+    duration = duration or 3
+    notifType = notifType or "info"
+    local ac = Theme.NotifInfo
+    if notifType == "success" then ac = Color3.fromRGB(60,180,90)
+    elseif notifType == "warning" then ac = Color3.fromRGB(255,160,60)
+    elseif notifType == "error" then ac = Color3.fromRGB(220,60,60) end
+
+    local notifHeight = _isMobile and 72 or 62
+    local n = Instance.new("Frame")
+    n.Size = UDim2.new(1,0,0,0)
+    n.BackgroundColor3 = Theme.TitleBar
+    n.BorderSizePixel = 0
+    n.ClipsDescendants = true
+    n.ZIndex = 201
+    n.Parent = NotifContainer
+    Corner(n, Theme.CornerRadius)
+    Stroke(n, ac, 1, 0.4)
+
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(0,4,1,-12)
+    bar.Position = UDim2.new(0,6,0,6)
+    bar.BackgroundColor3 = ac
+    bar.BorderSizePixel = 0
+    bar.ZIndex = 202
+    bar.Parent = n
+    Corner(bar, UDim.new(1,0))
+
+    local tl = Instance.new("TextLabel")
+    tl.Size = UDim2.new(1,-44,0,20)
+    tl.Position = UDim2.new(0,34,0,8)
+    tl.BackgroundTransparency = 1
+    tl.Text = title or "Notification"
+    tl.TextColor3 = Theme.Text
+    tl.TextSize = RS(14,15)
+    tl.Font = Theme.Font
+    tl.TextXAlignment = Enum.TextXAlignment.Left
+    tl.ZIndex = 203
+    tl.Parent = n
+
+    local ml = Instance.new("TextLabel")
+    ml.Size = UDim2.new(1,-44,0,34)
+    ml.Position = UDim2.new(0,34,0,28)
+    ml.BackgroundTransparency = 1
+    ml.Text = message or ""
+    ml.TextColor3 = Theme.TextDim
+    ml.TextSize = RS(12,13)
+    ml.Font = Theme.FontLight
+    ml.TextXAlignment = Enum.TextXAlignment.Left
+    ml.TextWrapped = true
+    ml.ZIndex = 203
+    ml.Parent = n
+
+    Tween(n, {Size = UDim2.new(1,0,0,notifHeight)}, 0.3)
+    delay(duration, function()
+        if n and n.Parent then
+            Tween(n, {Size = UDim2.new(1,0,0,0), BackgroundTransparency = 1}, 0.3)
+            wait(0.35)
+            if n and n.Parent then n:Destroy() end
+        end
+    end)
+end
+
 local function CreateWindow(title)
-    for _,v in pairs(playerGui:GetChildren()) do 
-        if v.Name=="FreeUI_Window" then v:Destroy() end 
+    for _,v in pairs(playerGui:GetChildren()) do
+        if v.Name == "FreeUI_Window" then v:Destroy() end
     end
 
     local screenGui = Instance.new("ScreenGui")
@@ -114,7 +254,6 @@ local function CreateWindow(title)
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
     titleLabel.Parent = titleBar
 
-    -- Close Button
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0,30,0,30)
     closeBtn.Position = UDim2.new(1,-40,0.5,-15)
@@ -178,7 +317,7 @@ local function CreateWindow(title)
         for n, btn in pairs(tabButtons) do
             local lbl = btn:FindFirstChild("Label")
             if n == name then
-                btn.BackgroundColor3 = Theme.SelectedTab
+                btn.BackgroundColor3 = Theme.SelectedTab or Color3.fromRGB(40,35,38)
                 if lbl then lbl.TextColor3 = Theme.Text end
             else
                 btn.BackgroundColor3 = Theme.Sidebar
@@ -302,18 +441,18 @@ local function CreateWindow(title)
                 Tween(tbg, {BackgroundColor3 = state and Theme.ToggleOn or Theme.ToggleOff})
                 Tween(circle, {Position = state and UDim2.new(1,-22,0.5,-10) or UDim2.new(0,2,0.5,-10)})
                 if cb then pcall(cb, state) end
-                if state and FreeUI.ThreadManager then
-                    FreeUI.ThreadManager:Start(label, 1, function() if cb then pcall(cb, true) end end)
+                if state then
+                    ThreadManager:Start(label, 1, function() if cb then pcall(cb, true) end end)
                 else
-                    FreeUI.ThreadManager:Stop(label)
+                    ThreadManager:Stop(label)
                 end
             end)
 
             if state and cb then
-                FreeUI.ThreadManager:Start(label, 1, function() pcall(cb, true) end)
+                ThreadManager:Start(label, 1, function() pcall(cb, true) end)
             end
 
-            return { Set = function(_,v) btn.MouseButton1Click:Fire() end, Get = function() return state end }
+            return { Set = function(_,v) if v ~= state then btn.MouseButton1Click:Fire() end end, Get = function() return state end }
         end
 
         function tabObj:AddButton(label, cb)
@@ -353,7 +492,7 @@ local function CreateWindow(title)
             btn.MouseButton1Click:Connect(function()
                 if cb then pcall(cb) end
                 Tween(btn, {Size = UDim2.new(0,94,0,28)}, 0.08)
-                task.wait(0.08)
+                wait(0.08)
                 Tween(btn, {Size = UDim2.new(0,100,0,32)}, 0.1)
             end)
 
@@ -491,39 +630,39 @@ local function CreateWindow(title)
         return tabObj
     end
 
-    -- Tambahkan tab default
+    -- Tab default
     local mainTab = AddTab("Main")
     mainTab:AddSection("Fitur")
-    local toggle1 = mainTab:AddToggle("Auto Roll", false, function(state)
-        print("Auto Roll:", state)
+    local t1 = mainTab:AddToggle("Auto Roll", false, function(state)
+        print("[FreeUI] Auto Roll:", state)
     end)
     mainTab:AddToggle("Auto Farm", false, function(state)
-        print("Auto Farm:", state)
+        print("[FreeUI] Auto Farm:", state)
     end)
     mainTab:AddToggle("Auto Rebirth", false, function(state)
-        print("Auto Rebirth:", state)
+        print("[FreeUI] Auto Rebirth:", state)
     end)
     mainTab:AddSection("Pengaturan")
     mainTab:AddSlider("Delay", 0.05, 2, 0.5, function(v)
-        print("Delay:", v)
+        print("[FreeUI] Delay:", v)
     end)
-    mainTab:AddButton("Test", function()
+    mainTab:AddButton("Test Notif", function()
         FreeUI:Notify("Info", "Tombol ditekan!", "info")
     end)
     mainTab:AddLabel("✨ Free UI Library v1.0")
 
-    -- Halaman kedua
     local settingsTab = AddTab("Settings")
     settingsTab:AddSection("Info")
     settingsTab:AddLabel("Library: Free UI")
     settingsTab:AddLabel("Versi: 1.0")
-    settingsTab:AddButton("Notifikasi", function()
-        FreeUI:Notify("Sukses", "Ini adalah notifikasi!", "success")
+    settingsTab:AddButton("Test Semua Notif", function()
+        FreeUI:Notify("Sukses", "Ini notifikasi sukses!", "success")
+        wait(0.3)
         FreeUI:Notify("Peringatan", "Ini peringatan!", "warning")
+        wait(0.3)
         FreeUI:Notify("Error", "Ini error!", "error")
     end)
 
-    -- Notifikasi container
     EnsureNotifContainer(screenGui)
 
     return {
@@ -532,15 +671,15 @@ local function CreateWindow(title)
         GetValue = FreeUI.GetValue,
         SetValue = FreeUI.SetValue,
         ThreadManager = ThreadManager,
-    }
+    end
 end
 
 FreeUI.CreateWindow = CreateWindow
-FreeUI.Notify = function(_,t,m,nt,d) 
+FreeUI.Notify = function(_,t,m,nt,d)
     local sg = playerGui:FindFirstChild("FreeUI_Window")
     if not sg then return end
     EnsureNotifContainer(sg)
-    FreeUI:Notify(t,m,nt,d) 
+    FreeUI:Notify(t,m,nt,d)
 end
 
 -- Jalankan
